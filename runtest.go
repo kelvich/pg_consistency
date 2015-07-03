@@ -1,39 +1,40 @@
 package main
 
 import (
-    "database/sql"
     "fmt"
-    _ "github.com/lib/pq"
-    // "time"
     "sync"
     "math/rand"
+    "database/sql"
+    _ "github.com/lib/pq"
 )
 
+// const (
+//     DB_USER     = "vagrant"
+//     DB_NAME     = "postgres"
+//     DB_PORT     = "4444"
+//     TRANSFER_CONNECTIONS = 1
+//     BALANCE_CONNECTIONS  = 1
+// )
+
 const (
-    DB_USER     = "vagrant"
+    DB_USER     = "stas1"
     DB_NAME     = "postgres"
-    DB_PORT     = "4444"
-    TRANSFER_CONNECTIONS = 1
+    DB_PORT     = "15432"
+    TRANSFER_CONNECTIONS = 10
     BALANCE_CONNECTIONS  = 1
 )
 
 // const (
 //     DB_USER     = "stas1"
 //     DB_NAME     = "postgres"
-//     DB_PORT     = "15432"
-//     TRANSFER_CONNECTIONS = 10
-//     BALANCE_CONNECTIONS  = 1
-// )
-
-// const (
-//     DB_USER     = "stas1"
-//     DB_NAME     = "stas1"
 //     DB_PORT     = "5432"
 //     TRANSFER_CONNECTIONS = 10
 //     BALANCE_CONNECTIONS  = 10
 // )
 
-func get_balance(wg *sync.WaitGroup, th_id int, dbinfo string) {
+var dbinfo = fmt.Sprintf("user=%s dbname=%s port=%s sslmode=disable", DB_USER, DB_NAME, DB_PORT)
+
+func get_balance(wg *sync.WaitGroup, th_id int) {
     db, err := sql.Open("postgres", dbinfo)
     checkErr(err)
     defer db.Close()
@@ -43,7 +44,7 @@ func get_balance(wg *sync.WaitGroup, th_id int, dbinfo string) {
     for {
         err := db.QueryRow("SELECT sum(balance) FROM accounts").Scan(&new_balance)
         checkErr(err)
-        if new_balance != balance {
+        if new_balance != balance && th_id == 0 {
             fmt.Println(balance, "->", new_balance)
             balance = new_balance
         }
@@ -52,12 +53,12 @@ func get_balance(wg *sync.WaitGroup, th_id int, dbinfo string) {
     wg.Done()
 }
 
-func transfer_money(wg *sync.WaitGroup, th_id int, dbinfo string) {
+func transfer_money(wg *sync.WaitGroup, th_id int) {
     db, err := sql.Open("postgres", dbinfo)
     checkErr(err)
     defer db.Close()
 
-    for i:=0; i<10000; i++ {
+    for {
         tx, err := db.Begin()
         checkErr(err)
         defer tx.Rollback()
@@ -77,21 +78,10 @@ func transfer_money(wg *sync.WaitGroup, th_id int, dbinfo string) {
 
         err = tx.Commit()
         checkErr(err)
-
-        i += 1
     }
 
     wg.Done()
 }
-
-// func analyze(wg *sync.WaitGroup) {
-
-//     for {
-
-//     }
-
-//     wg.Done()
-// }
 
 func checkErr(err error) {
     if err != nil {
@@ -102,20 +92,16 @@ func checkErr(err error) {
 func main() {
     var wg sync.WaitGroup
 
-    dbinfo := fmt.Sprintf("user=%s dbname=%s port=%s sslmode=disable", DB_USER, DB_NAME, DB_PORT)
-    
     wg.Add(TRANSFER_CONNECTIONS)
     for i:=0; i<TRANSFER_CONNECTIONS; i++{
-        go transfer_money(&wg, i, dbinfo)
+        go transfer_money(&wg, i)
     }
 
     wg.Add(BALANCE_CONNECTIONS)
     for i:=0; i<BALANCE_CONNECTIONS; i++{
-        go get_balance(&wg, i, dbinfo)
+        go get_balance(&wg, i)
     }
 
     wg.Wait()
 }
-
-
 
