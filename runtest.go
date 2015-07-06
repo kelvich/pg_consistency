@@ -41,11 +41,16 @@ func get_balance(wg *sync.WaitGroup, th_id int) {
 
     balance := 0
     new_balance := 0
+    iteration := 0
+    count := 0
     for {
-        err := db.QueryRow("SELECT sum(balance) FROM accounts").Scan(&new_balance)
+        err := db.QueryRow("SELECT sum(balance),count(*) FROM accounts").Scan(&new_balance, &count)
         checkErr(err)
-        if new_balance != balance && th_id == 0 {
-            fmt.Println(balance, "->", new_balance)
+        iteration += 1
+        if new_balance != balance && th_id == 0 { 
+            xid := 0
+            db.QueryRow("SELECT txid_current()").Scan(&xid)
+            fmt.Println(iteration, ":", balance, "->", new_balance, "xid =", xid, "count =", count)
             balance = new_balance
         }
     }
@@ -65,7 +70,7 @@ func transfer_money(wg *sync.WaitGroup, th_id int) {
 
         id1 := rand.Intn(9999)+1;
         id2 := rand.Intn(9999)+1;
-        amount := rand.Intn(100000);
+        amount := 1 // rand.Intn(100000);
 
         stmt, err := tx.Prepare("UPDATE accounts SET balance = balance + $1 WHERE id=$2")
         checkErr(err)

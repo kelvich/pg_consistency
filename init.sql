@@ -12,6 +12,5 @@ CREATE TABLE accounts
 
 insert into accounts(id, balance) (select s, 100000*random() from generate_series(1,10000) as s);
 
-SELECT sum(balance) FROM accounts
-
+SELECT sum(balance) FROM accounts;
 
